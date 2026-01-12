@@ -244,6 +244,9 @@ import AlbumSongsScreen from "../screens/AlbumSongsScreen";
 import PlaylistsScreen from "../screens/PlaylistsScreen";
 import CreatePlaylistScreen from "../screens/CreatePlaylistScreen";
 import PlaylistSongsScreen from "../screens/PlaylistSongsScreen";
+import AddToPlaylistScreen from "../screens/AddToPlaylistScreen";
+
+import { SaavnSong } from "../api/saavn";
 
 export type RootStackParamList = {
   Tabs: undefined;
@@ -257,6 +260,7 @@ export type RootStackParamList = {
   Playlists: undefined;
   CreatePlaylist: undefined;
   PlaylistSongs: { playlistId: string; playlistName: string };
+  AddToPlaylist: { song: SaavnSong };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -284,6 +288,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Playlists" component={PlaylistsScreen} />
       <Stack.Screen name="CreatePlaylist" component={CreatePlaylistScreen} />
       <Stack.Screen name="PlaylistSongs" component={PlaylistSongsScreen} />
+      <Stack.Screen name="AddToPlaylist" component={AddToPlaylistScreen} />
     </Stack.Navigator>
   );
 }

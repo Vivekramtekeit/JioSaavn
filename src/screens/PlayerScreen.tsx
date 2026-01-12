@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Image, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
@@ -7,13 +7,15 @@ import { useNavigation } from "@react-navigation/native";
 import { usePlayerStore } from "../store/playerStore";
 import { useQueueStore } from "../store/queueStore";
 import { useFavoriteStore } from "../store/favoriteStore";
+import { SaavnSong } from "../api/saavn";
 
 import {
   getBestImage,
   getArtistName,
   getCleanSongName,
   downloadSong,
-  isSongDownloaded
+  isSongDownloaded,
+  searchSongs
 } from "../api/saavn";
 
 import ActionSheet from "../components/ActionSheet";
@@ -38,8 +40,18 @@ export default function PlayerScreen() {
 
   const queue = useQueueStore((s) => s.queue);
   const currentIndex = useQueueStore((s) => s.currentIndex);
-  const setCurrentIndex = useQueueStore((s) => s.setCurrentIndex);
   const addToQueue = useQueueStore((s) => s.addToQueue);
+  const setQueue = useQueueStore((s) => s.setQueue);
+  const setCurrentIndex = useQueueStore((s) => s.setCurrentIndex);
+
+  const playlists = usePlaylistStore((s) => s.playlists);
+
+  async function insertNext() {
+    if (!song) return;
+    const newQueue = [...queue];
+    newQueue.splice(currentIndex + 1, 0, song);
+    await setQueue(newQueue, currentIndex);
+  }
 
   const toggleFavorite = useFavoriteStore((s) => s.toggleFavorite);
   const isFavorite = useFavoriteStore((s) => s.isFavorite);
@@ -47,6 +59,17 @@ export default function PlayerScreen() {
 
   const [isShuffle, setIsShuffle] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [artistSongs, setArtistSongs] = useState<SaavnSong[]>([]);
+
+  useEffect(() => {
+    if (song) {
+      const artist = getArtistName(song);
+      searchSongs(artist).then(results => {
+        // Filter out the current song
+        setArtistSongs(results.filter(s => s.id !== song.id).slice(0, 6)); // limit to 6
+      });
+    }
+  }, [song]);
 
   if (!song) return null;
 
@@ -174,11 +197,45 @@ export default function PlayerScreen() {
       </View>
 
       {/* Action Sheet */}
-<ActionSheet
-  visible={showMoreSheet}
-  song={song}
-  onClose={() => setShowMoreSheet(false)}
-/>
+      <ActionSheet
+        visible={showMoreSheet}
+        title={getCleanSongName(song.name)}
+        onClose={() => setShowMoreSheet(false)}
+        options={[
+          {
+            label: "Add to Queue",
+            onPress: async () => {
+              await addToQueue(song);
+              setShowMoreSheet(false);
+            },
+            icon: "add-circle-outline",
+          },
+          {
+            label: "Play Next",
+            onPress: async () => {
+              await insertNext();
+              setShowMoreSheet(false);
+            },
+            icon: "play-skip-forward-outline",
+          },
+          {
+            label: "Add to Playlist",
+            onPress: async () => {
+              navigation.navigate("AddToPlaylist", { song });
+              setShowMoreSheet(false);
+            },
+            icon: "list-outline",
+          },
+          {
+            label: "Download Song",
+            onPress: async () => {
+              await downloadSong(song);
+              setShowMoreSheet(false);
+            },
+            icon: "download-outline",
+          },
+        ]}
+      />
 
     </View>
   );

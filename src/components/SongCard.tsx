@@ -130,8 +130,10 @@
 import React, { useState } from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SaavnSong, getBestImage, getArtistName, getCleanSongName } from "../api/saavn";
+import { useNavigation } from "@react-navigation/native";
+import { SaavnSong, getBestImage, getArtistName, getCleanSongName, downloadSong } from "../api/saavn";
 import { useQueueStore } from "../store/queueStore";
+import { usePlaylistStore } from "../store/playlistStore";
 import ActionSheet from "./ActionSheet";
 
 type Props = {
@@ -140,8 +142,20 @@ type Props = {
 };
 
 export default function SongCard({ song, onPress }: Props) {
+  const navigation: any = useNavigation();
   const addToQueue = useQueueStore((s) => s.addToQueue);
+  const queue = useQueueStore((s) => s.queue);
+  const currentIndex = useQueueStore((s) => s.currentIndex);
+  const setQueue = useQueueStore((s) => s.setQueue);
+  const playlists = usePlaylistStore((s) => s.playlists);
+  const addSongToPlaylist = usePlaylistStore((s) => s.addSongToPlaylist);
   const [showSheet, setShowSheet] = useState(false);
+
+  async function playNext() {
+    const newQueue = [...queue];
+    newQueue.splice(currentIndex + 1, 0, song);
+    await setQueue(newQueue, currentIndex);
+  }
 
   return (
     <>
@@ -180,11 +194,45 @@ export default function SongCard({ song, onPress }: Props) {
         </TouchableOpacity>
       </TouchableOpacity>
 
-      {/* Playlist Sheet */}
+      {/* Action Sheet */}
       <ActionSheet
         visible={showSheet}
-        song={song}
+        title={getCleanSongName(song.name)}
         onClose={() => setShowSheet(false)}
+        options={[
+          {
+            label: "Add to Queue",
+            onPress: async () => {
+              await addToQueue(song);
+              setShowSheet(false);
+            },
+            icon: "add-circle-outline",
+          },
+          {
+            label: "Play Next",
+            onPress: async () => {
+              await playNext();
+              setShowSheet(false);
+            },
+            icon: "play-skip-forward-outline",
+          },
+          {
+            label: "Add to Playlist",
+            onPress: async () => {
+              navigation.navigate("AddToPlaylist", { song });
+              setShowSheet(false);
+            },
+            icon: "list-outline",
+          },
+          {
+            label: "Download Song",
+            onPress: async () => {
+              await downloadSong(song);
+              setShowSheet(false);
+            },
+            icon: "download-outline",
+          },
+        ]}
       />
     </>
   );

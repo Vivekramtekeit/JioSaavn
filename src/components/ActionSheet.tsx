@@ -75,19 +75,73 @@ import { usePlaylistStore } from "../store/playlistStore";
 
 type Props = {
   visible: boolean;
-  song: SaavnSong;
+  title?: string;
+  options?: { label: string; onPress: () => void; icon?: string }[];
+  song?: SaavnSong;
   onClose: () => void;
 };
 
-export default function ActionSheet({ visible, song, onClose }: Props) {
+export default function ActionSheet({ visible, title, options, song, onClose }: Props) {
   const navigation: any = useNavigation();
   const playlists = usePlaylistStore((s) => s.playlists);
   const addSongToPlaylist = usePlaylistStore((s) => s.addSongToPlaylist);
 
   async function handleAdd(playlistId: string) {
-    await addSongToPlaylist(playlistId, song);
-    onClose();
+    if (song) {
+      await addSongToPlaylist(playlistId, song);
+      onClose();
+    }
   }
+
+  const displayTitle = song ? "Add to Playlist" : title || "Options";
+  const content = song ? (
+    <>
+      {/* Create New Playlist */}
+      <TouchableOpacity
+        onPress={() => {
+          onClose();
+          navigation.navigate("CreatePlaylist");
+        }}
+        style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14 }}
+      >
+        <Ionicons name="add-circle" size={24} color="orange" />
+        <Text style={{ color: "white", fontSize: 15, marginLeft: 10 }}>
+          Create New Playlist
+        </Text>
+      </TouchableOpacity>
+
+      {/* Existing Playlists */}
+      <FlatList
+        data={playlists}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => handleAdd(item.id)}
+            style={{ paddingVertical: 12 }}
+          >
+            <Text style={{ color: "white", fontSize: 15 }}>
+              {item.name}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+    </>
+  ) : (
+    options?.map((op, i) => (
+      <TouchableOpacity
+        key={i}
+        onPress={op.onPress}
+        style={{ paddingVertical: 14 }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {op.icon && <Ionicons name={op.icon as any} size={20} color="white" style={{ marginRight: 10 }} />}
+          <Text style={{ color: "white", fontSize: 15 }}>
+            {op.label}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    ))
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -101,7 +155,7 @@ export default function ActionSheet({ visible, song, onClose }: Props) {
           padding: 20,
           borderTopLeftRadius: 22,
           borderTopRightRadius: 22,
-          maxHeight: "60%"
+          maxHeight: song ? "60%" : undefined,
         }}>
 
           <Text style={{
@@ -110,38 +164,10 @@ export default function ActionSheet({ visible, song, onClose }: Props) {
             fontWeight: "900",
             marginBottom: 15
           }}>
-            Add to Playlist
+            {displayTitle}
           </Text>
 
-          {/* Create New Playlist */}
-          <TouchableOpacity
-            onPress={() => {
-              onClose();
-              navigation.navigate("CreatePlaylist");
-            }}
-            style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14 }}
-          >
-            <Ionicons name="add-circle" size={24} color="orange" />
-            <Text style={{ color: "white", fontSize: 15, marginLeft: 10 }}>
-              Create New Playlist
-            </Text>
-          </TouchableOpacity>
-
-          {/* Existing Playlists */}
-          <FlatList
-            data={playlists}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => handleAdd(item.id)}
-                style={{ paddingVertical: 12 }}
-              >
-                <Text style={{ color: "white", fontSize: 15 }}>
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
+          {content}
 
           {/* Cancel */}
           <TouchableOpacity onPress={onClose} style={{ paddingVertical: 14 }}>
