@@ -22,6 +22,7 @@ type QueueState = {
   setCurrentIndex: (index: number) => Promise<void>;
   next: () => Promise<void>;
 prev: () => Promise<void>;
+  clearQueue: () => Promise<void>;
 };
 
 export const useQueueStore = create<QueueState>((set, get) => ({
@@ -131,6 +132,11 @@ prev: async () => {
 
   setCurrentIndex: async (index) => {
     set({ currentIndex: index });
+    await get().saveQueue();
+  },
+
+  clearQueue: async () => {
+    set({ queue: [], currentIndex: 0 });
     await get().saveQueue();
   },
 }));

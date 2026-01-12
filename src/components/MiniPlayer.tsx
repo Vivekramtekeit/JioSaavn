@@ -1,9 +1,11 @@
+
+
 import React from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { usePlayerStore } from "../store/playerStore";
-import { getBestImage } from "../api/saavn";
 import { Ionicons } from "@expo/vector-icons";
+import { usePlayerStore } from "../store/playerStore";
+import { getBestImage, getArtistName, getCleanSongName } from "../api/saavn";
 
 export default function MiniPlayer() {
   const navigation: any = useNavigation();
@@ -12,7 +14,6 @@ export default function MiniPlayer() {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const toggle = usePlayerStore((s) => s.togglePlayPause);
 
-  // ✅ don’t show mini player if nothing is playing
   if (!song) return null;
 
   return (
@@ -21,54 +22,58 @@ export default function MiniPlayer() {
       onPress={() => navigation.navigate("Player")}
       style={{
         position: "absolute",
-        left: 12,
-        right: 12,
-        bottom: 12,
-        height: 70,
-        borderRadius: 16,
-        backgroundColor: "#111",
+        left: 8,
+        right: 8,
+        bottom: 60, 
+        backgroundColor: "#1e1e1e",
+        borderRadius: 14,
         flexDirection: "row",
         alignItems: "center",
-        paddingHorizontal: 12,
+        padding: 10,
+        elevation: 8,
       }}
     >
       <Image
         source={{ uri: getBestImage(song) }}
-        style={{ width: 50, height: 50, borderRadius: 12, marginRight: 12 }}
+        style={{ width: 48, height: 48, borderRadius: 10 }}
       />
 
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{ color: "white", fontWeight: "800", fontSize: 14 }}
-          numberOfLines={1}
-        >
-          {song.name}
+      <View style={{ flex: 1, marginLeft: 10 }}>
+        <Text style={{ color: "white", fontSize: 14, fontWeight: "800" }} numberOfLines={1}>
+          {getCleanSongName(song.name)}
         </Text>
-        <Text style={{ color: "#ccc", marginTop: 3, fontSize: 12 }} numberOfLines={1}>
-          {song.primaryArtists || "Unknown Artist"}
+        <Text style={{ color: "#aaa", fontSize: 12 }} numberOfLines={1}>
+          {getArtistName(song)}
         </Text>
       </View>
 
-      {/* Play Pause Button */}
+      {/* Download icon */}
       <TouchableOpacity
         onPress={(e) => {
-          e.stopPropagation(); // ✅ prevent opening Player when clicking play
+          e.stopPropagation();
+          console.log("Downloading:", song.name);
+        }}
+        style={{ marginRight: 12 }}
+      >
+        <Ionicons name="download-outline" size={22} color="white" />
+      </TouchableOpacity>
+
+      {/* Play / Pause */}
+      <TouchableOpacity
+        onPress={(e) => {
+          e.stopPropagation();
           toggle();
         }}
         style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
           backgroundColor: "orange",
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Ionicons
-          name={isPlaying ? "pause" : "play"}
-          size={22}
-          color="white"
-        />
+        <Ionicons name={isPlaying ? "pause" : "play"} size={20} color="white" />
       </TouchableOpacity>
     </TouchableOpacity>
   );

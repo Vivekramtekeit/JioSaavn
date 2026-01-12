@@ -1,12 +1,22 @@
-import React from "react";
-import { View, Text, Image, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { View, Text, Image, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { useNavigation } from "@react-navigation/native";
 
 import { usePlayerStore } from "../store/playerStore";
 import { useQueueStore } from "../store/queueStore";
-import { getBestImage } from "../api/saavn";
+import { useFavoriteStore } from "../store/favoriteStore";
+
+import {
+  getBestImage,
+  getArtistName,
+  getCleanSongName,
+  downloadSong,
+  isSongDownloaded
+} from "../api/saavn";
+
+import ActionSheet from "../components/ActionSheet";
 
 function formatTime(ms: number) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -18,251 +28,158 @@ function formatTime(ms: number) {
 export default function PlayerScreen() {
   const navigation: any = useNavigation();
 
-  // player store
   const song = usePlayerStore((s) => s.currentSong);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const toggle = usePlayerStore((s) => s.togglePlayPause);
-  const stop = usePlayerStore((s) => s.stop);
   const playSong = usePlayerStore((s) => s.playSong);
-
-  // seekbar
+  const seekTo = usePlayerStore((s) => s.seekTo);
   const positionMillis = usePlayerStore((s) => s.positionMillis);
   const durationMillis = usePlayerStore((s) => s.durationMillis);
-  const seekTo = usePlayerStore((s) => s.seekTo);
 
-  // queue store
   const queue = useQueueStore((s) => s.queue);
   const currentIndex = useQueueStore((s) => s.currentIndex);
   const setCurrentIndex = useQueueStore((s) => s.setCurrentIndex);
+  const addToQueue = useQueueStore((s) => s.addToQueue);
 
-  if (!song) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: 16 }}>No song selected</Text>
-      </View>
-    );
+  const toggleFavorite = useFavoriteStore((s) => s.toggleFavorite);
+  const isFavorite = useFavoriteStore((s) => s.isFavorite);
+  const liked = song ? isFavorite(song.id) : false;
+
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
+
+  if (!song) return null;
+
+  const playNext = async () => {
+    let nextIndex = currentIndex + 1;
+    if (isShuffle) nextIndex = Math.floor(Math.random() * queue.length);
+    if (queue[nextIndex]) {
+      await setCurrentIndex(nextIndex);
+      await playSong(queue[nextIndex]);
+    }
+  };
+
+  const playPrev = async () => {
+    let prevIndex = currentIndex - 1;
+    if (prevIndex < 0) prevIndex = 0;
+    if (queue[prevIndex]) {
+      await setCurrentIndex(prevIndex);
+      await playSong(queue[prevIndex]);
+    }
+  };
+
+  async function handleDownload() {
+    if (!song) return;
+    const already = await isSongDownloaded(song);
+    if (already) {
+      Alert.alert("Already Downloaded");
+      return;
+    }
+    await downloadSong(song);
+    Alert.alert("Downloaded", "Song saved for offline play");
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        paddingTop: 50,
-        paddingHorizontal: 18,
-        backgroundColor: "#fff",
-      }}
-    >
-      {/* ✅ Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 10,
-        }}
-      >
+    <View style={{ flex: 1, backgroundColor: "#121212", paddingTop: 50 }}>
+
+      {/* Header */}
+      <View style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingHorizontal: 20,
+      }}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={26} color="#111" />
+          <Ionicons name="chevron-back" size={26} color="white" />
         </TouchableOpacity>
 
-        <Text style={{ fontWeight: "900" }}>Now Playing</Text>
+        <Text style={{ color: "white", fontSize: 16, fontWeight: "900" }}>
+          Now Playing
+        </Text>
 
         <TouchableOpacity onPress={() => navigation.navigate("Queue")}>
-          <Ionicons name="list" size={24} color="#111" />
+          <Ionicons name="list" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
-      {/* ✅ Artwork */}
+      {/* Artwork */}
       <Image
         source={{ uri: getBestImage(song) }}
-        style={{
-          width: "100%",
-          height: 330,
-          borderRadius: 22,
-          marginTop: 10,
-          backgroundColor: "#eee",
-        }}
+        style={{ width: "100%", height: 340, borderRadius: 18, marginTop: 15 }}
       />
 
-      {/* ✅ Song info */}
-      <Text
-        style={{
-          fontSize: 22,
-          fontWeight: "900",
-          marginTop: 18,
-          textAlign: "center",
-        }}
-        numberOfLines={2}
-      >
-        {song.name}
+      {/* Info */}
+      <Text style={{ color: "white", fontSize: 22, fontWeight: "900", textAlign: "center", marginTop: 18 }}>
+        {getCleanSongName(song.name)}
       </Text>
 
-      <Text
-        style={{ fontSize: 14, color: "#666", marginTop: 6 }}
-        numberOfLines={1}
-      >
-        {song.primaryArtists || "Unknown Artist"}
+      <Text style={{ color: "#aaa", fontSize: 14, textAlign: "center", marginTop: 5 }}>
+        {getArtistName(song)}
       </Text>
 
-      {/* ✅ Seekbar */}
-      <View style={{ marginTop: 20 }}>
+      {/* Seek */}
+      <View style={{ marginTop: 20, paddingHorizontal: 15 }}>
         <Slider
           value={positionMillis}
           minimumValue={0}
           maximumValue={durationMillis || 1}
-          onSlidingComplete={(value) => seekTo(value)}
+          onSlidingComplete={(v) => seekTo(v)}
           minimumTrackTintColor="orange"
-          maximumTrackTintColor="#ddd"
+          maximumTrackTintColor="#333"
           thumbTintColor="orange"
         />
-
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={{ color: "#666", fontSize: 12 }}>
-            {formatTime(positionMillis)}
-          </Text>
-          <Text style={{ color: "#666", fontSize: 12 }}>
-            {formatTime(durationMillis)}
-          </Text>
+          <Text style={{ color: "#aaa", fontSize: 12 }}>{formatTime(positionMillis)}</Text>
+          <Text style={{ color: "#aaa", fontSize: 12 }}>{formatTime(durationMillis)}</Text>
         </View>
       </View>
 
-      {/* ✅ Play/Pause */}
-      {/* ✅ Controls Row (Figma Style) */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "center",
-          alignItems: "center",
-          marginTop: 25,
-        }}
-      >
-        {/* Prev */}
-        <TouchableOpacity
-          onPress={async () => {
-            const newIndex = currentIndex - 1;
-            if (newIndex >= 0 && queue[newIndex]) {
-              await setCurrentIndex(newIndex);
-              await playSong(queue[newIndex]);
-            }
-          }}
-          style={{
-            width: 55,
-            height: 55,
-            borderRadius: 27.5,
-            backgroundColor: "#111",
-            justifyContent: "center",
-            alignItems: "center",
-            marginHorizontal: 20,
-          }}
-        >
-          <Ionicons name="play-skip-back" size={22} color="white" />
+      {/* Controls */}
+      <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 25 }}>
+        <TouchableOpacity onPress={playPrev} style={{ marginHorizontal: 25 }}>
+          <Ionicons name="play-skip-back" size={26} color="white" />
         </TouchableOpacity>
 
-        {/* Play / Pause Center */}
-        <TouchableOpacity
-          onPress={toggle}
-          style={{
-            width: 78,
-            height: 78,
-            borderRadius: 39,
-            backgroundColor: "orange",
-            justifyContent: "center",
-            alignItems: "center",
-            elevation: 4,
-          }}
-        >
+        <TouchableOpacity onPress={toggle}>
           <Ionicons
-            name={isPlaying ? "pause" : "play"}
-            size={34}
-            color="white"
+            name={isPlaying ? "pause-circle" : "play-circle"}
+            size={70}
+            color="orange"
           />
         </TouchableOpacity>
 
-        {/* Next */}
-        <TouchableOpacity
-          onPress={async () => {
-            const newIndex = currentIndex + 1;
-            if (newIndex < queue.length && queue[newIndex]) {
-              await setCurrentIndex(newIndex);
-              await playSong(queue[newIndex]);
-            }
-          }}
-          style={{
-            width: 55,
-            height: 55,
-            borderRadius: 27.5,
-            backgroundColor: "#111",
-            justifyContent: "center",
-            alignItems: "center",
-            marginHorizontal: 20,
-          }}
-        >
-          <Ionicons name="play-skip-forward" size={22} color="white" />
+        <TouchableOpacity onPress={playNext} style={{ marginHorizontal: 25 }}>
+          <Ionicons name="play-skip-forward" size={26} color="white" />
         </TouchableOpacity>
       </View>
-      {/* ✅ Bottom small icons row (Figma style) */}
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: 18,
-          paddingHorizontal: 20,
-        }}
-      >
-        {/* Shuffle */}
-        <TouchableOpacity
-          onPress={() => {
-            // TODO: implement shuffle later
-            alert("Shuffle (coming soon)");
-          }}
-        >
-          <Ionicons name="shuffle" size={22} color="#111" />
+
+      {/* Bottom Buttons */}
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 18, paddingHorizontal: 40 }}>
+
+        <TouchableOpacity onPress={() => toggleFavorite(song)}>
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={22} color={liked ? "orange" : "white"} />
         </TouchableOpacity>
 
-        {/* Timer */}
-        <TouchableOpacity
-          onPress={() => {
-            // TODO: implement sleep timer later
-            alert("Sleep Timer (coming soon)");
-          }}
-        >
-          <Ionicons name="timer-outline" size={22} color="#111" />
+        <TouchableOpacity onPress={() => setIsShuffle(!isShuffle)}>
+          <Ionicons name="shuffle" size={22} color={isShuffle ? "orange" : "white"} />
         </TouchableOpacity>
 
-        {/* Device / Cast */}
-        <TouchableOpacity
-          onPress={() => {
-            alert("Devices (coming soon)");
-          }}
-        >
-          <Ionicons name="headset-outline" size={22} color="#111" />
+        <TouchableOpacity onPress={handleDownload}>
+          <Ionicons name="download-outline" size={22} color="white" />
         </TouchableOpacity>
 
-        {/* More menu */}
-        <TouchableOpacity
-          onPress={() => {
-            alert("More Options (coming soon)");
-          }}
-        >
-          <Ionicons name="ellipsis-vertical" size={22} color="#111" />
+        <TouchableOpacity onPress={() => setShowMoreSheet(true)}>
+          <Ionicons name="ellipsis-vertical" size={22} color="white" />
         </TouchableOpacity>
       </View>
-      {/* ✅ Lyrics section */}
-      <View
-        style={{
-          marginTop: 22,
-          borderTopWidth: 1,
-          borderTopColor: "#eee",
-          paddingTop: 12,
-          alignItems: "center",
-        }}
-      >
-        <Ionicons name="chevron-up" size={22} color="#111" />
-        <Text style={{ fontSize: 14, fontWeight: "800", marginTop: 4 }}>
-          Lyrics
-        </Text>
-      </View>
+
+      {/* Action Sheet */}
+<ActionSheet
+  visible={showMoreSheet}
+  song={song}
+  onClose={() => setShowMoreSheet(false)}
+/>
+
     </View>
   );
 }
